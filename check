@@ -1,6 +1,8 @@
-#!/usr/bin/env sh
+#!/bin/bash
+
 
 set -e
+
 function cleanup {
   for pid in "${PIDS[@]}"
   do
@@ -9,16 +11,18 @@ function cleanup {
   exit 0
 }
 
-function position() {
+function position {
   # based on a script from http://invisible-island.net/xterm/xterm.faq.html
   exec < /dev/tty
   oldstty=$(stty -g)
   stty raw -echo min 0
+
   # on my system, the following line can be replaced by the line below it
   # echo -en "\033[6n" > /dev/tty
   tput u7 > /dev/tty    # when TERM=xterm (and relatives)
   IFS=';' read -r -d R -a pos
   stty $oldstty
+
   # change from one-based to zero based so they work with: tput cup $row $col
   row=$((${pos[0]:2} - 1))    # strip off the esc-[
   col=$((${pos[1]} - 1))
@@ -26,7 +30,7 @@ function position() {
   echo "$row"
 }
 
-function monitor() {
+function monitor {
   local url=$1
   local p=$((START_CURSOR+$2+1))
 
@@ -61,7 +65,7 @@ declare -a URLS
 if [ -t 0 ]; then
   if [ $# -eq 0 ]
     then
-    echo "Usage:\n\n  \033[1mcheck$RESET <url>\n  cat urls.txt | \033[1mcheck$RESET\n"
+    echo "Usage:\n\n  ${RED}check${RESET} <url>\n  cat urls.txt | \033[1mcheck${RESET}\n"
     exit 1
   else
     URLS=($1)
@@ -96,5 +100,3 @@ do
 done
 
 wait ${PIDS[@]}
-
-
