@@ -1,0 +1,100 @@
+#!/usr/bin/env sh
+
+set -e
+function cleanup {
+  for pid in "${PIDS[@]}"
+  do
+    kill -0 $pid 2&> /dev/null && kill $pid
+  done
+  exit 0
+}
+
+function position() {
+  # based on a script from http://invisible-island.net/xterm/xterm.faq.html
+  exec < /dev/tty
+  oldstty=$(stty -g)
+  stty raw -echo min 0
+  # on my system, the following line can be replaced by the line below it
+  # echo -en "\033[6n" > /dev/tty
+  tput u7 > /dev/tty    # when TERM=xterm (and relatives)
+  IFS=';' read -r -d R -a pos
+  stty $oldstty
+  # change from one-based to zero based so they work with: tput cup $row $col
+  row=$((${pos[0]:2} - 1))    # strip off the esc-[
+  col=$((${pos[1]} - 1))
+
+  echo "$row"
+}
+
+function monitor() {
+  local url=$1
+  local p=$((START_CURSOR+$2+1))
+
+      # -w "$GREEN%{http_code}$RESET $url \\033[${p};${TIMING_COL}f%{time_total}s TTFB: %{time_connect} + %{time_starttransfer} (%{size_download})" \
+
+  echo "\033[${p};0f$(curl $url --compress -s -o /dev/null -w \
+    "%{http_code}|%{time_total}|%{time_pretransfer}|%{time_starttransfer}\n"\
+      | sed -n '/^/ s///p' \
+      | while IFS='|' read http_code time_total time_pretransfer time_starttransfer;
+      do
+        if [[ $http_code > 399 ]]; then
+          http_code="$RED$http_code$RESET"
+        else
+          http_code="$GREEN$http_code$RESET"
+        fi
+        TTFB=$(echo "$time_starttransfer $time_pretransfer" | awk '{ printf "%.3fs", $1 - $2 }')
+        echo "$http_code $url \\033[${p};${TIMING_COL}f${time_total}s (TTFB $TTFB)"
+    done)\n\033[${LAST_CURSOR};0f" &
+
+  PIDS=("${PIDS[@]}" "$!")
+}
+
+declare -a PIDS
+RED="\033[31m"
+RESET="\033[0m"
+GREEN="\033[32m"
+START_CURSOR=$(position)
+LAST_CURSOR=0
+TIMING_COL=0
+declare -a URLS
+
+if [ -t 0 ]; then
+  if [ $# -eq 0 ]
+    then
+    echo "Usage:\n\n  \033[1mcheck$RESET <url>\n  cat urls.txt | \033[1mcheck$RESET\n"
+    exit 1
+  else
+    URLS=($1)
+  fi
+else
+  while read line
+  do
+      URLS=("${URLS[@]}" $line)
+  done
+fi
+
+trap cleanup EXIT
+
+for url in "${URLS[@]}"
+do
+  length=${#url}
+  if [[ $length > $TIMING_COL ]]; then TIMING_COL=$length; fi
+  echo "... $url"
+done
+
+TIMING_COL=$(( $TIMING_COL + 6))
+LAST_CURSOR=$(position)
+
+if [[ $LAST_CURSOR == $(( $(tput lines) - 1 )) ]]
+  then
+  START_CURSOR=$(( LAST_CURSOR - ${#URLS[@]}))
+fi
+
+for index in "${!URLS[@]}"
+do
+  monitor ${URLS[index]} $index
+done
+
+wait ${PIDS[@]}
+
+
