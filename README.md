@@ -5,6 +5,7 @@ Usage:
 ```bash
 $ ./check <url>
 $ ./check < url-list.txt
+$ ./check <url> -- -k # pass -k to curl command
 ```
 
 ![demo](check-script.gif)

@@ -1,5 +1,6 @@
 #!/bin/bash
 
+# version 1.1.0
 
 set -e
 
@@ -36,7 +37,7 @@ function monitor {
 
       # -w "$GREEN%{http_code}$RESET $url \\033[${p};${TIMING_COL}f%{time_total}s TTFB: %{time_connect} + %{time_starttransfer} (%{size_download})" \
 
-  echo -e "\033[${p};0f$(curl $url --compress -s -o /dev/null -w \
+  echo -e "\033[${p};0f$(curl ${CURL_ARGS} $url --compress -s -o /dev/null -w \
     "%{http_code}|%{time_total}|%{time_pretransfer}|%{time_starttransfer}\n"\
       | sed -n '/^/ s///p' \
       | while IFS='|' read http_code time_total time_pretransfer time_starttransfer;
@@ -60,24 +61,35 @@ GREEN="\033[32m"
 START_CURSOR=$(position)
 LAST_CURSOR=0
 TIMING_COL=0
+CURL_ARGS=""
 declare -a URLS
 
-if [ -t 0 ]; then
-  if [ $# -eq 0 ]
+if [ -t 0 ]; then # nothing on stdin
+  if [ $# -eq 0 ] # if arg count is 0 - then error
     then
     echo -e "Usage:\n\n  ${RED}check${RESET} <url>\n  cat urls.txt | \033[1mcheck${RESET}\n"
     exit 1
   else
-    URLS=($1)
+    for ((i=0 ; i <= $# ; i++)) # read each url individually
+    do
+      if [ "$1" = "--" ] # if "end of options"
+        then
+        shift
+        CURL_ARGS=$@ # the pass along the options to cURL
+        break
+      fi
+      URLS=("${URLS[@]}" $1)
+      shift
+    done
   fi
 else
-  while read line
+  while read line # from stdin
   do
       URLS=("${URLS[@]}" $line)
   done
 fi
 
-trap cleanup EXIT
+trap cleanup EXIT # so that we can put cURL in the background, but wait until it's finished
 
 for url in "${URLS[@]}"
 do
