@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# version 1.1.0
+# version 1.1.1
 
 set -e
 
@@ -69,25 +69,29 @@ if [ -t 0 ]; then # nothing on stdin
     then
     echo -e "Usage:\n\n  ${RED}check${RESET} <url>\n  cat urls.txt | \033[1mcheck${RESET}\n"
     exit 1
-  else
-    for ((i=0 ; i <= $# ; i++)) # read each url individually
-    do
-      if [ "$1" = "--" ] # if "end of options"
-        then
-        shift
-        CURL_ARGS=$@ # the pass along the options to cURL
-        break
-      fi
-      URLS=("${URLS[@]}" $1)
-      shift
-    done
   fi
 else
   while read line # from stdin
   do
-      URLS=("${URLS[@]}" $line)
+    URLS=("${URLS[@]}" $line)
   done
 fi
+
+# then double check the arguments on the command line
+for ((i=0 ; i < $# ; i++)) # read each url individually
+do
+  if [ "$1" = "--" ] # if "end of options"
+    then
+    shift
+    CURL_ARGS=$@ # the pass along the options to cURL
+    break
+  fi
+  if [ -n "$1" ]
+    then
+    URLS=("${URLS[@]}" $1)
+  fi
+  shift
+done
 
 trap cleanup EXIT # so that we can put cURL in the background, but wait until it's finished
 
