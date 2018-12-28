@@ -37,7 +37,7 @@ function monitor {
 
       # -w "$GREEN%{http_code}$RESET $url \\033[${p};${TIMING_COL}f%{time_total}s TTFB: %{time_connect} + %{time_starttransfer} (%{size_download})" \
 
-  echo -e "\033[${p};0f$(curl ${CURL_ARGS} $url --compress -s -o /dev/null -w \
+  echo -e "\033[${p};0f$(curl ${CURL_ARGS} $url --compressed -s -o /dev/null -w \
     "%{http_code}|%{time_total}|%{time_pretransfer}|%{time_starttransfer}\n"\
       | sed -n '/^/ s///p' \
       | while IFS='|' read http_code time_total time_pretransfer time_starttransfer;
